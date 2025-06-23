@@ -1,4 +1,4 @@
-# Maze Generation Visualizer
+# Maze Generator
 
 This is a full-stack web application designed to demonstrate and visualize five classical maze generation algorithms. A Python backend computes the mazes, and a JavaScript frontend renders the generation process in real-time using WebSockets.
 
