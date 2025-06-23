@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from app import ALGORITHMS # We import the algorithm dictionary from our main app
+from app import ALGORITHMS # We import the algorithm dictionary from our main app.
 
 def is_fully_connected(grid):
     """
