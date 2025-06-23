@@ -4,15 +4,14 @@ from flask_socketio import SocketIO
 import numpy as np
 import importlib
 import time
-import threading # Import the threading module
+import threading
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'a_very_secret_and_unguessable_key_for_production!'
 socketio = SocketIO(app)
 
 # --- State Management Dictionaries ---
-# These will store the state for each connected client, keyed by their session ID.
-# This is crucial for a multi-user environment.
+# These dictionaries store the state for each connected client, keyed by their session ID.
 client_speeds = {}
 pause_events = {}
 
@@ -28,53 +27,56 @@ ALGORITHMS = {
 def index():
     return render_template('index.html')
 
-# --- NEW: Event Handlers for Pause and Speed ---
+
+# --- NEW: Handler for client disconnection ---
+@socketio.on('disconnect')
+def handle_disconnect():
+    """
+    Cleans up state when a client disconnects. This is crucial for preventing memory leaks.
+    This event is automatically triggered by Flask-SocketIO when a user closes their tab or browser.
+    """
+    client_sid = request.sid
+    # Safely remove the client's data from our state dictionaries.
+    # The .pop() method removes a key and returns its value, or None if the key doesn't exist.
+    client_speeds.pop(client_sid, None)
+    
+    pause_event = pause_events.pop(client_sid, None)
+    if pause_event:
+        # If a generation thread was paused for this client, we must unblock it
+        # so that it can terminate gracefully instead of becoming a zombie thread.
+        pause_event.set()
+
+    print(f"Client {client_sid} disconnected. Cleaned up their state.")
+
+
 @socketio.on('pause_resume')
 def handle_pause_resume(data):
-    """Handles pause/resume requests from a client."""
     client_sid = request.sid
     is_paused = data.get('isPaused', False)
     
     if client_sid in pause_events:
         if is_paused:
-            pause_events[client_sid].clear() # clear() means RESUME
+            pause_events[client_sid].clear()  # clear() blocks the thread's .wait() call.
         else:
-            pause_events[client_sid].set() # set() means PAUSE
+            pause_events[client_sid].set()    # set() unblocks the thread's .wait() call.
 
 @socketio.on('set_speed')
 def handle_set_speed(data):
-    """Handles speed change requests from a client."""
     client_sid = request.sid
-    # We store the speed value for this specific client.
-    # The frontend will send a value from 1 (slow) to 100 (fast).
-    client_speeds[client_sid] = int(data.get('speed', 50))
+    client_speeds[client_sid] = int(data.get('speed', 75))
 
-# --- NEW: Handler for client disconnection ---
-@socketio.on('disconnect')
-def handle_disconnect():
-    """Cleans up state when a client disconnects to prevent memory leaks."""
-    client_sid = request.sid
-    if client_sid in client_speeds:
-        del client_speeds[client_sid]
-    if client_sid in pause_events:
-        # Ensure any paused threads are resumed so they can terminate gracefully.
-        pause_events[client_sid].clear()
-        del pause_events[client_sid]
-    print(f"Client {client_sid} disconnected. Cleaned up state.")
-
-
-# --- MODIFIED: The main generation handler ---
 @socketio.on('generate_maze')
 def handle_maze_generation(data):
     client_sid = request.sid
     print(f"Generating maze for client with SID: {client_sid}")
 
-    # Create a new threading Event for this specific generation task.
+    # Create and store a threading Event for this specific generation task.
+    # We start it in the "set" (running) state.
     pause_events[client_sid] = threading.Event()
-    # Set a default speed for the client.
-    client_speeds.setdefault(client_sid, 50)
+    pause_events[client_sid].set()
+    
+    client_speeds.setdefault(client_sid, 75)
 
-    # ... (width, height, algorithm selection logic remains the same)
     width = int(data.get('width', 41)) | 1
     height = int(data.get('height', 41)) | 1
     algorithm_name = data.get('algorithm', 'dfs')
@@ -84,32 +86,32 @@ def handle_maze_generation(data):
     start_time = time.time()
     
     for update in generator_func(grid):
-        # --- PAUSE LOGIC ---
-        # Before each step, check if the pause event is set.
-        # .wait() will block this thread until the event is cleared, without blocking the main server.
+        # Check if the client is still connected before proceeding.
+        # This handles cases where a client disconnects mid-generation.
+        if client_sid not in pause_events:
+            print(f"Client {client_sid} disconnected mid-generation. Terminating thread.")
+            break
+
+        # Before each step, wait on the event. It will only block if the event is "cleared" (paused).
         pause_events[client_sid].wait()
 
-        # --- SPEED LOGIC ---
-        # Calculate sleep duration based on client's speed setting.
-        # We invert the speed value: higher speed = shorter sleep time.
-        speed = client_speeds.get(client_sid, 50)
-        # Map speed (1-100) to sleep duration (e.g., 0.1s - 0.0s)
+        speed = client_speeds.get(client_sid, 75)
         sleep_duration = (101 - speed) * 0.001 
 
         socketio.emit('maze_update', update, to=client_sid)
         socketio.sleep(sleep_duration)
     
     end_time = time.time()
-    generation_time = (end_time - start_time) * 1000
     
-    socketio.emit('generation_complete', {
-        'time': f'{generation_time:.2f} ms',
-        'algo': algorithm_name.upper(),
-    }, to=client_sid)
-    
-    # Clean up the pause event for this finished task
+    # Only send completion message if the client is still connected.
     if client_sid in pause_events:
-        del pause_events[client_sid]
+        generation_time = (end_time - start_time) * 1000
+        socketio.emit('generation_complete', {
+            'time': f'{generation_time:.2f} ms',
+            'algo': algorithm_name.upper(),
+        }, to=client_sid)
+        # Clean up the pause event for this finished task.
+        pause_events.pop(client_sid, None)
 
 if __name__ == '__main__':
     socketio.run(app, debug=True)

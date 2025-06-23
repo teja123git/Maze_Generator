@@ -13,7 +13,6 @@ let isGenerating = false;
 let isPaused = false;
 
 // --- Core Functions ---
-// MODIFIED: setupCanvas now fills with the wall color.
 function setupCanvas(width, height) {
     gridWidth = width;
     gridHeight = height;
@@ -31,7 +30,6 @@ function drawCell(r, c, color) {
 // --- WebSocket Communication ---
 const socket = io();
 
-// Maze update listener remains the same logic, but will use the new colors.
 socket.on('maze_update', function(update) {
     const [r, c] = update.cell;
     const type = update.type;
@@ -42,7 +40,6 @@ socket.on('maze_update', function(update) {
     drawCell(r, c, color);
 });
 
-// Update completion handler
 socket.on('generation_complete', function(data) {
     statsDisplay.innerText = `Algorithm: ${data.algo} | Time: ${data.time}`;
     isGenerating = false;
@@ -66,9 +63,12 @@ socket.on('connect_error', (err) => {
 function generateMaze(algorithm) {
     if (isGenerating) return;
     isGenerating = true;
-    isPaused = false;
+    isPaused = false; // Reset pause state
     pauseBtn.innerText = 'Pause';
-    pauseBtn.disabled = false; // Enable the pause button
+    pauseBtn.disabled = false;
+
+    // Set the initial speed value on the server when starting a new maze
+    socket.emit('set_speed', { speed: speedSlider.value });
 
     const width = Math.floor(canvas.parentElement.clientWidth / VISUAL_SETTINGS.cellSize) | 1;
     const height = Math.floor(450 / VISUAL_SETTINGS.cellSize) | 1;
@@ -83,24 +83,21 @@ function generateMaze(algorithm) {
     });
 }
 
-// --- NEW: Event Listeners for New Controls ---
 pauseBtn.addEventListener('click', () => {
     if (!isGenerating) return;
     isPaused = !isPaused;
     pauseBtn.innerText = isPaused ? 'Resume' : 'Pause';
-    // Tell the server about the new pause state.
+    // CORRECTED LOGIC: 'isPaused' on the frontend now means "the user wants it paused"
+    // The backend's Event.clear() (which blocks) corresponds to isPaused=true
     socket.emit('pause_resume', { isPaused: isPaused });
 });
 
 speedSlider.addEventListener('input', () => {
-    // As the slider moves, send its value to the server.
     socket.emit('set_speed', { speed: speedSlider.value });
 });
 
-
 // Event listeners for algorithm buttons
 document.getElementById('dfs-btn').addEventListener('click', () => generateMaze('dfs'));
-// ... (add listeners for other algo buttons)
 document.getElementById('prims-btn').addEventListener('click', () => generateMaze('prims'));
 document.getElementById('kruskals-btn').addEventListener('click', () => generateMaze('kruskals'));
 document.getElementById('ellers-btn').addEventListener('click', () => generateMaze('ellers'));
