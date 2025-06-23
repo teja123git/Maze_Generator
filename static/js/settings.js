@@ -15,8 +15,9 @@ export const VISUAL_SETTINGS = {
 
     // A centralized color palette. Changing a color here will update it everywhere.
     colors: {
-        wall: '#CCCCCC',
-        path: '#000000',
+        wall: '#FFFFFF',       // Walls are now white.
+        path: '#888888',       // Paths are now grey.
+        border: '#A0522D',     // Saddle Brown for the maze border.
         current: '#39FF14',    // Bright green for the "active" cell
         frontier: '#00BFFF',   // Blue for the "frontier" cells
         // NEW COLORS FOR START AND END MARKERS

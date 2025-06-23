@@ -1,7 +1,9 @@
+// static/js/maze.js
+
 import { MAZE_DIMENSIONS, VISUAL_SETTINGS } from './settings.js';
 
 // --- DOM Element Selection ---
-const canvas = document.getElementById('mazeCanvas');
+const canvas = document.getElementById('mazeCanvas'); // <-- Ensure this ID is correct in your HTML
 const ctx = canvas.getContext('2d');
 const statsDisplay = document.getElementById('stats-display');
 const pauseBtn = document.getElementById('pause-btn');
@@ -13,12 +15,15 @@ let isGenerating = false;
 let isPaused = false;
 
 // --- Core Functions ---
+// MODIFIED: setupCanvas now fills the entire canvas with the main background color.
 function setupCanvas(width, height) {
     gridWidth = width;
     gridHeight = height;
     canvas.width = width * VISUAL_SETTINGS.cellSize;
     canvas.height = height * VISUAL_SETTINGS.cellSize;
-    ctx.fillStyle = VISUAL_SETTINGS.colors.wall;
+    
+    // Fill the entire canvas area with the overall background color (e.g., black)
+    ctx.fillStyle = VISUAL_SETTINGS.colors.background;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 }
 
@@ -34,8 +39,11 @@ socket.on('maze_update', function(update) {
     const [r, c] = update.cell;
     const type = update.type;
     
-    let color = VISUAL_SETTINGS.colors.path;
-    if (type === 'frontier') color = VISUAL_SETTINGS.colors.frontier;
+    // Paths are grey, walls are white.
+    let color = VISUAL_SETTINGS.colors.path; // Default to path color for carved areas.
+    if (type === 'frontier') {
+        color = VISUAL_SETTINGS.colors.frontier; // Frontier is blue.
+    }
     
     drawCell(r, c, color);
 });
@@ -60,21 +68,29 @@ socket.on('connect_error', (err) => {
 });
 
 // --- UI Interaction ---
+// MODIFIED: generateMaze now draws the initial maze (all walls) with the wall color.
 function generateMaze(algorithm) {
     if (isGenerating) return;
     isGenerating = true;
-    isPaused = false; // Reset pause state
+    isPaused = false;
     pauseBtn.innerText = 'Pause';
     pauseBtn.disabled = false;
 
-    // Set the initial speed value on the server when starting a new maze
     socket.emit('set_speed', { speed: speedSlider.value });
 
     const width = Math.floor(canvas.parentElement.clientWidth / VISUAL_SETTINGS.cellSize) | 1;
     const height = Math.floor(450 / VISUAL_SETTINGS.cellSize) | 1;
     
-    setupCanvas(width, height);
-    statsDisplay.innerText = `Algorithm: ${algorithm.toUpperCase()} | Generating...`;
+    setupCanvas(width, height); // This clears the canvas with the background color.
+
+    // NEW: Initialize the maze structure as all walls (white)
+    // This loop fills the area where the maze will be with the wall color.
+    for (let r = 0; r < height; r++) {
+        for (let c = 0; c < width; c++) {
+            drawCell(r, c, VISUAL_SETTINGS.colors.wall);
+        }
+    }
+    // -----------------------------------------------------
 
     socket.emit('generate_maze', {
         algorithm: algorithm,
@@ -83,12 +99,11 @@ function generateMaze(algorithm) {
     });
 }
 
+// --- Event Listeners ---
 pauseBtn.addEventListener('click', () => {
     if (!isGenerating) return;
     isPaused = !isPaused;
     pauseBtn.innerText = isPaused ? 'Resume' : 'Pause';
-    // CORRECTED LOGIC: 'isPaused' on the frontend now means "the user wants it paused"
-    // The backend's Event.clear() (which blocks) corresponds to isPaused=true
     socket.emit('pause_resume', { isPaused: isPaused });
 });
 
@@ -96,7 +111,6 @@ speedSlider.addEventListener('input', () => {
     socket.emit('set_speed', { speed: speedSlider.value });
 });
 
-// Event listeners for algorithm buttons
 document.getElementById('dfs-btn').addEventListener('click', () => generateMaze('dfs'));
 document.getElementById('prims-btn').addEventListener('click', () => generateMaze('prims'));
 document.getElementById('kruskals-btn').addEventListener('click', () => generateMaze('kruskals'));
