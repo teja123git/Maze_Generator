@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Maze Generator</title>
+    <!-- The url_for function is a Flask helper that correctly generates the path to our static files. -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Maze Generator</h1>
+            <p>A Python + WebSocket Real-Time Visualizer</p>
+        </header>
+
+        <div class="controls">
+            <h2>Generation Algorithms</h2>
+            <div class="button-group">
+                <!-- Each button is given a unique and descriptive ID. -->
+                <button id="kruskals-btn">Kruskal's Algorithm</button>
+                <button id="prims-btn">Prim's Algorithm</button>
+                <button id="ellers-btn">Eller's Algorithm</button>
+                <button id="dfs-btn">Depth-First Search</button>
+                <button id="aldous-broder-btn">Aldous-Broder</button>
+            </div>
+            <!-- SEPARATE GROUP FOR UTILITY BUTTONS -->
+            <div class="button-group utility-group">
+                <button id="download-btn">Download Maze</button>
+            </div>
+        </div>
+
+        <main>
+            <!-- The canvas is where our JavaScript will draw the maze visualization. -->
+            <canvas id="mazeCanvas"></canvas>
+        </main>
+
+        <footer>
+            <!-- This div is a placeholder that our JavaScript will update with live stats from the server. -->
+            <div id="stats-display">Select an algorithm to begin</div>
+        </footer>
+    </div>
+
+    <!-- SCRIPT LOADING ORDER IS CRITICAL -->
+    <!-- 1. Load the Socket.IO client library first, as our code depends on it. -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.js"></script>
+
+    <!-- 2. Load our main logic script. The type="module" attribute is ESSENTIAL. -->
+    <!-- It enables the import/export syntax used between maze.js and settings.js. -->
+    <script type="module" src="{{ url_for('static', filename='js/maze.js') }}"></script>
+</body>
+</html>
