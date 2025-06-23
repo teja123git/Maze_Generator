@@ -114,3 +114,57 @@ footer {
     color: #03dac6;
     min-height: 1.2em;
 }
+
+
+/*  Styles for the slider container */
+.slider-container {
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+}
+
+.slider-container label {
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+#speed-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 200px;
+    height: 8px;
+    background: #444;
+    border-radius: 5px;
+    outline: none;
+    opacity: 0.7;
+    transition: opacity .2s;
+}
+
+#speed-slider:hover {
+    opacity: 1;
+}
+
+#speed-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    background: #03dac6;
+    cursor: pointer;
+    border-radius: 50%;
+}
+
+#speed-slider::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    background: #03dac6;
+    cursor: pointer;
+    border-radius: 50%;
+}
+
+#pause-btn:disabled {
+    background-color: #555;
+    cursor: not-allowed;
+}

@@ -15,8 +15,8 @@ export const VISUAL_SETTINGS = {
 
     // A centralized color palette. Changing a color here will update it everywhere.
     colors: {
-        background: '#111111',
-        path: '#FFFFFF',
+        wall: '#CCCCCC',
+        path: '#000000',
         current: '#39FF14',    // Bright green for the "active" cell
         frontier: '#00BFFF',   // Blue for the "frontier" cells
         // NEW COLORS FOR START AND END MARKERS

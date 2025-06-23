@@ -1,6 +1,6 @@
 # Stage 1: Use an official, slim Python image as our base.
 # "slim" versions are smaller, which is good for deployment.
-FROM python:3.9-slim
+FROM python:3.11-slim
 
 # Set the working directory inside the container to /app.
 # All subsequent commands will run from this directory.

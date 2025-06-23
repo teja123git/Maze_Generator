@@ -1,24 +1,25 @@
-// static/js/maze.js
-
-// Import all necessary configuration from our settings file.
 import { MAZE_DIMENSIONS, VISUAL_SETTINGS } from './settings.js';
 
 // --- DOM Element Selection ---
 const canvas = document.getElementById('mazeCanvas');
 const ctx = canvas.getContext('2d');
 const statsDisplay = document.getElementById('stats-display');
+const pauseBtn = document.getElementById('pause-btn');
+const speedSlider = document.getElementById('speed-slider');
 
 // --- Application State ---
 let gridWidth, gridHeight;
 let isGenerating = false;
+let isPaused = false;
 
 // --- Core Functions ---
+// MODIFIED: setupCanvas now fills with the wall color.
 function setupCanvas(width, height) {
     gridWidth = width;
     gridHeight = height;
     canvas.width = width * VISUAL_SETTINGS.cellSize;
     canvas.height = height * VISUAL_SETTINGS.cellSize;
-    ctx.fillStyle = VISUAL_SETTINGS.colors.background;
+    ctx.fillStyle = VISUAL_SETTINGS.colors.wall;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 }
 
@@ -30,24 +31,25 @@ function drawCell(r, c, color) {
 // --- WebSocket Communication ---
 const socket = io();
 
+// Maze update listener remains the same logic, but will use the new colors.
 socket.on('maze_update', function(update) {
     const [r, c] = update.cell;
     const type = update.type;
     
     let color = VISUAL_SETTINGS.colors.path;
-    // if (type === 'current') color = VISUAL_SETTINGS.colors.current;
     if (type === 'frontier') color = VISUAL_SETTINGS.colors.frontier;
     
     drawCell(r, c, color);
 });
 
-// MODIFIED: This listener now also draws the start and end points.
+// Update completion handler
 socket.on('generation_complete', function(data) {
-    console.log(`Server finished: ${data.algo} in ${data.time}`);
     statsDisplay.innerText = `Algorithm: ${data.algo} | Time: ${data.time}`;
     isGenerating = false;
+    isPaused = false;
+    pauseBtn.innerText = 'Pause';
+    pauseBtn.disabled = true;
 
-    // Draw start and end cells after generation is complete
     const startCell = [1, 1];
     const endCell = [gridHeight - 2, gridWidth - 2];
     drawCell(startCell[0], startCell[1], VISUAL_SETTINGS.colors.start);
@@ -62,11 +64,11 @@ socket.on('connect_error', (err) => {
 
 // --- UI Interaction ---
 function generateMaze(algorithm) {
-    if (isGenerating) {
-        console.warn("Generation is already in progress.");
-        return;
-    }
+    if (isGenerating) return;
     isGenerating = true;
+    isPaused = false;
+    pauseBtn.innerText = 'Pause';
+    pauseBtn.disabled = false; // Enable the pause button
 
     const width = Math.floor(canvas.parentElement.clientWidth / VISUAL_SETTINGS.cellSize) | 1;
     const height = Math.floor(450 / VISUAL_SETTINGS.cellSize) | 1;
@@ -81,21 +83,33 @@ function generateMaze(algorithm) {
     });
 }
 
+// --- NEW: Event Listeners for New Controls ---
+pauseBtn.addEventListener('click', () => {
+    if (!isGenerating) return;
+    isPaused = !isPaused;
+    pauseBtn.innerText = isPaused ? 'Resume' : 'Pause';
+    // Tell the server about the new pause state.
+    socket.emit('pause_resume', { isPaused: isPaused });
+});
+
+speedSlider.addEventListener('input', () => {
+    // As the slider moves, send its value to the server.
+    socket.emit('set_speed', { speed: speedSlider.value });
+});
+
+
 // Event listeners for algorithm buttons
 document.getElementById('dfs-btn').addEventListener('click', () => generateMaze('dfs'));
+// ... (add listeners for other algo buttons)
 document.getElementById('prims-btn').addEventListener('click', () => generateMaze('prims'));
 document.getElementById('kruskals-btn').addEventListener('click', () => generateMaze('kruskals'));
 document.getElementById('ellers-btn').addEventListener('click', () => generateMaze('ellers'));
 document.getElementById('aldous-broder-btn').addEventListener('click', () => generateMaze('aldous_broder'));
 
-// NEW: Event listener for the download button
 document.getElementById('download-btn').addEventListener('click', () => {
-    // This creates a temporary link element to trigger the download.
     const link = document.createElement('a');
-    // We name the file with the current date and time for uniqueness.
     const filename = `maze_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.png`;
     link.download = filename;
-    // toDataURL converts the canvas content into a base64-encoded PNG image.
     link.href = canvas.toDataURL('image/png').replace('image/png', 'image/octet-stream');
     link.click();
 });
